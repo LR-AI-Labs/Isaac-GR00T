@@ -268,14 +268,14 @@ class GR00TTransform(InvertibleModalityTransform):
         transformed_data["state"] = state
         transformed_data["state_mask"] = state_mask
 
-        if self.training:
-            # 3) Prepare actions
-            transformed_data["segmentation_target"] = np.zeros((2,))
-            transformed_data["segmentation_target_mask"] = np.zeros((1,))
-            transformed_data["has_real_action"] = np.ones((), dtype=bool)
-            actions, actions_mask, _ = self._prepare_action(data)
-            transformed_data["action"] = actions
-            transformed_data["action_mask"] = actions_mask
+        # if self.training:
+        # 3) Prepare actions
+        transformed_data["segmentation_target"] = np.zeros((2,))
+        transformed_data["segmentation_target_mask"] = np.zeros((1,))
+        transformed_data["has_real_action"] = np.ones((), dtype=bool)
+        actions, actions_mask, _ = self._prepare_action(data)
+        transformed_data["action"] = actions
+        transformed_data["action_mask"] = actions_mask
 
         for k, v in vlm_outputs.items():
             assert k not in transformed_data, f"Key {k} already exists in transformed_data."
@@ -284,12 +284,12 @@ class GR00TTransform(InvertibleModalityTransform):
         # By default, assume regular robot data with only real action.
         transformed_data["embodiment_id"] = self.get_embodiment_tag()
 
-        if self.training:
-            action_and_mask_keys = ["action", "action_mask"]
-            assert all(
-                transformed_data[key].shape == transformed_data["action"].shape
-                for key in action_and_mask_keys
-            ), f"Shape mismatch: {[(key, transformed_data[key].shape) for key in action_and_mask_keys]}"
+        # if self.training:
+        action_and_mask_keys = ["action", "action_mask"]
+        assert all(
+            transformed_data[key].shape == transformed_data["action"].shape
+            for key in action_and_mask_keys
+        ), f"Shape mismatch: {[(key, transformed_data[key].shape) for key in action_and_mask_keys]}"
 
         return transformed_data
 

@@ -27,7 +27,9 @@ from gr00t.data.dataset import ModalityConfig
 from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.data.schema import DatasetMetadata
 from gr00t.data.transform.base import ComposedModalityTransform
-from gr00t.model.gr00t_n1 import GR00T_N1
+from gr00t.model.gr00t_n1 import GR00T_N1, L1_GR00T_N1
+
+from gr00t.model.action_head.l1_action_head import L1ActionGenerator, L1ActionGeneratorConfig
 
 COMPUTE_DTYPE = torch.bfloat16
 
@@ -171,6 +173,7 @@ class Gr00tPolicy(BasePolicy):
         normalized_input = unsqueeze_dict_values
         # Apply transforms
         normalized_input = self.apply_transforms(observations)
+        print(normalized_input.keys())
 
         normalized_action = self._get_action_from_normalized_input(normalized_input)
         unnormalized_action = self._get_unnormalized_action(normalized_action)
@@ -288,6 +291,20 @@ class Gr00tPolicy(BasePolicy):
             assert (delta_indices[1] - delta_indices[0]) > 0, f"{delta_indices=}"
 
 
+class L1Gr00tPolicy(Gr00tPolicy):
+    def __init__(self, l1_model_path, *args, **kwargs):
+        self.l1_model_path = l1_model_path
+        super().__init__(*args, **kwargs)
+    
+    def _load_model(self, model_path):
+        model = L1_GR00T_N1.from_pretrained(model_path, 
+                                            config=self.l1_model_path,
+                                            ignore_mismatched_sizes=True,
+                                            torch_dtype=COMPUTE_DTYPE)
+        
+        model.eval()  # Set model to eval mode
+        model.to(device=self.device)  # type: ignore
+        self.model = model
 #######################################################################################################
 
 

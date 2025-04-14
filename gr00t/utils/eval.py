@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -46,7 +47,8 @@ def calc_mse_for_single_trajectory(
     state_joints_across_time = []
     gt_action_joints_across_time = []
     pred_action_joints_across_time = []
-
+    total_time = 0
+    
     for step_count in range(steps):
         data_point = dataset.get_step_data(traj_id, step_count)
 
@@ -65,7 +67,9 @@ def calc_mse_for_single_trajectory(
 
         if step_count % action_horizon == 0:
             print("inferencing at step: ", step_count)
+            start_time = time.time()
             action_chunk = policy.get_action(data_point)
+            total_time += time.time() - start_time
             for j in range(action_horizon):
                 # NOTE: concat_pred_action = action[f"action.{modality_keys[0]}"][j]
                 # the np.atleast_1d is to ensure the action is a 1D array, handle where single value is returned
@@ -88,6 +92,8 @@ def calc_mse_for_single_trajectory(
     # calc MSE across time
     mse = np.mean((gt_action_joints_across_time - pred_action_joints_across_time) ** 2)
     print("Unnormalized Action MSE across single traj:", mse)
+    print("Average inference time per action:", total_time / steps)
+    print("Average inference time per action_horizon:", total_time / (steps // action_horizon))
 
     num_of_joints = state_joints_across_time.shape[1]
 
@@ -104,14 +110,16 @@ def calc_mse_for_single_trajectory(
         for i, ax in enumerate(axes):
             ax.plot(state_joints_across_time[:, i], label="state joints")
             ax.plot(gt_action_joints_across_time[:, i], label="gt action joints")
-            ax.plot(pred_action_joints_across_time[:, i], label="pred action joints")
 
             # put a dot every ACTION_HORIZON
             for j in range(0, steps, action_horizon):
+                end = min(j + action_horizon, steps)
                 if j == 0:
                     ax.plot(j, gt_action_joints_across_time[j, i], "ro", label="inference point")
+                    ax.plot(range(j, end), pred_action_joints_across_time[j:end, i], "g-", label="pred action joints")
                 else:
                     ax.plot(j, gt_action_joints_across_time[j, i], "ro")
+                    ax.plot(range(j, end), pred_action_joints_across_time[j:end, i], "g-")
 
             ax.set_title(f"Joint {i}")
             ax.legend()

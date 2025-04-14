@@ -27,7 +27,7 @@ from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.data.schema import EmbodimentTag
 from gr00t.experiment.data_config import DATA_CONFIG_MAP
 from gr00t.experiment.runner import TrainRunner
-from gr00t.model.gr00t_n1 import GR00T_N1
+from gr00t.model.gr00t_n1 import L1_GR00T_N1
 from gr00t.utils.peft import get_lora_model
 
 
@@ -55,12 +55,15 @@ class Config:
     num_gpus: int = 1
     """Number of GPUs to use for training."""
 
-    save_steps: int = 500
+    save_steps: int = 10
     """Number of steps between saving checkpoints."""
 
     # Model parameters
     base_model_path: str = "nvidia/GR00T-N1-2B"
     """Path or HuggingFace model ID for the base model."""
+    
+    l1_model_path: str = "getting_started/l1_gr00t"
+    """Path to the L1 GR00T model configuration."""
 
     tune_llm: bool = False
     """Whether to fine-tune the language model backbone."""
@@ -71,7 +74,7 @@ class Config:
     tune_projector: bool = True
     """Whether to fine-tune the projector."""
 
-    tune_diffusion_model: bool = True
+    tune_action_backbone: bool = True
     """Whether to fine-tune the diffusion model."""
 
     resume: bool = False
@@ -135,12 +138,15 @@ def main(config: Config):
     )
 
     # ------------ step 2: load model ------------
-    model = GR00T_N1.from_pretrained(
+    # Initialize the model with custom config and load matched weight from GR00T pretrained model 
+    model = L1_GR00T_N1.from_pretrained(
         pretrained_model_name_or_path=config.base_model_path,
+        config=config.l1_model_path,
         tune_llm=config.tune_llm,  # backbone's LLM
         tune_visual=config.tune_visual,  # backbone's vision tower
         tune_projector=config.tune_projector,  # action head's projector
-        tune_diffusion_model=config.tune_diffusion_model,  # action head's DiT
+        tune_action_backbone=config.tune_action_backbone,  # action head's DiT
+        ignore_mismatched_sizes=True,
     )
 
     # Set the model's compute_dtype to bfloat16
@@ -190,6 +196,7 @@ def main(config: Config):
         ddp_find_unused_parameters=False,
         ddp_bucket_cap_mb=100,
         torch_compile_mode=None,
+        save_only_model=True
     )
 
     # 2.2 run experiment
