@@ -178,7 +178,7 @@ def main(config: Config):
         warmup_ratio=config.warmup_ratio,
         lr_scheduler_type="cosine",
         logging_steps=10.0,
-        num_train_epochs=300,
+        num_train_epochs=1,
         max_steps=config.max_steps,
         save_strategy="steps",
         save_steps=config.save_steps,
