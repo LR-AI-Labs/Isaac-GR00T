@@ -190,6 +190,7 @@ def main(config: Config):
         ddp_find_unused_parameters=False,
         ddp_bucket_cap_mb=100,
         torch_compile_mode=None,
+        save_only_model=True
     )
 
     # 2.2 run experiment

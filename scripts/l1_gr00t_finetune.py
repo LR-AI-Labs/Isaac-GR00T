@@ -55,7 +55,7 @@ class Config:
     num_gpus: int = 1
     """Number of GPUs to use for training."""
 
-    save_steps: int = 10
+    save_steps: int = 500
     """Number of steps between saving checkpoints."""
 
     # Model parameters
@@ -111,7 +111,13 @@ class Config:
 
     video_backend: str = "decord"
     """Video backend to use for training. [decord, torchvision_av]"""
-
+    
+    # Additional parameters for action horizon
+    action_horizon: int = 16
+    """Action horizon for the model. This is the number of actions to predict in the future."""
+    num_past_actions: int = 0
+    """Number of past actions to consider. This is the number of actions to condition on."""
+    
 
 #####################################################################################
 # main training function
@@ -125,6 +131,7 @@ def main(config: Config):
 
     # 1.1 modality configs and transforms
     data_config_cls = DATA_CONFIG_MAP[config.data_config]
+    data_config_cls.action_indices = list(range(-config.num_past_actions, config.action_horizon))
     modality_configs = data_config_cls.modality_config()
     transforms = data_config_cls.transform()
 

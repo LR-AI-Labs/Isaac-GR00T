@@ -42,6 +42,7 @@ def calc_mse_for_single_trajectory(
     modality_keys: list,
     steps=300,
     action_horizon=16,
+    num_past_actions=0,
     plot=False,
 ):
     state_joints_across_time = []
@@ -59,7 +60,7 @@ def calc_mse_for_single_trajectory(
             [data_point[f"state.{key}"][0] for key in modality_keys], axis=0
         )
         concat_gt_action = np.concatenate(
-            [data_point[f"action.{key}"][0] for key in modality_keys], axis=0
+            [data_point[f"action.{key}"][num_past_actions] for key in modality_keys], axis=0
         )
 
         state_joints_across_time.append(concat_state)

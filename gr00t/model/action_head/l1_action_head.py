@@ -205,7 +205,7 @@ class L1ActionGenerator(nn.Module):
         if not tune_action_backbone:
             self.model.requires_grad_(False)
         print(f"Tune action head projector: {self.tune_projector}")
-        print(f"Tune action head diffusion model: {self.tune_action_backbone}")
+        print(f"Tune action head backbone: {self.tune_action_backbone}")
         # Check if any parameters are still trainable. If not, print a warning.
         if not tune_projector and not tune_action_backbone:
             for name, p in self.named_parameters():
@@ -225,6 +225,8 @@ class L1ActionGenerator(nn.Module):
                 self.state_encoder.eval()
                 self.action_embedding.eval()
                 self.action_decoder.eval()
+                if self.action_encoder is not None:
+                    self.action_encoder.eval()
                 if self.config.add_pos_embed:
                     self.position_embedding.eval()
             if not self.tune_action_backbone:
