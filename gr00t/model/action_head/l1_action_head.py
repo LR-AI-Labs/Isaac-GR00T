@@ -34,11 +34,8 @@ class L1ActionGeneratorConfig(PretrainedConfig):
     tune_action_backbone: bool = field(
         default=True, metadata={"help": "Whether to tune the backbone of action head."}
     )
-    use_past_actions: bool = field(
-        default=False, metadata={"help": "Whether to use past actions. First 4 action in dataset are defaulted to be past actions."}
-    )
     num_past_actions: int = field(
-        default=4, metadata={"help": "Number of past actions used."}
+        default=0, metadata={"help": "Number of past actions used."}
     )
 
     def __init__(self, **kwargs):
@@ -161,7 +158,7 @@ class L1ActionGenerator(nn.Module):
         )
         # action_encoder for encoding past actions
         self.num_past_actions = config.num_past_actions
-        if config.use_past_actions:
+        if self.num_past_actions > 0:
             self.action_encoder = CategorySpecificMLP(
                 num_categories=config.max_num_embodiments,
                 input_dim=self.action_dim,

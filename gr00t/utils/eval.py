@@ -50,8 +50,14 @@ def calc_mse_for_single_trajectory(
     pred_action_joints_across_time = []
     total_time = 0
     
+    if num_past_actions > 0:
+        print(f"Using {num_past_actions} past actions")
+    past_actions = None
     for step_count in range(steps):
         data_point = dataset.get_step_data(traj_id, step_count)
+        if past_actions is not None:
+            for key in modality_keys:
+                data_point[f"action.{key}"][:num_past_actions] = past_actions[key]
 
         # NOTE this is to get all modality keys concatenated
         # concat_state = data_point[f"state.{modality_keys[0]}"][0]
@@ -71,6 +77,12 @@ def calc_mse_for_single_trajectory(
             start_time = time.time()
             action_chunk = policy.get_action(data_point)
             total_time += time.time() - start_time
+            # cache past actions
+            if num_past_actions > 0:
+                past_actions = {}
+                for key in modality_keys:
+                    past_actions[key] = action_chunk[f"action.{key}"][-num_past_actions:]
+                    
             for j in range(action_horizon):
                 # NOTE: concat_pred_action = action[f"action.{modality_keys[0]}"][j]
                 # the np.atleast_1d is to ensure the action is a 1D array, handle where single value is returned

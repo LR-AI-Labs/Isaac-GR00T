@@ -28,7 +28,6 @@
     "model_dtype": "float32",
     "tune_action_backbone": true,
     "tune_projector": true,
-    "use_past_actions": true,
     "num_past_actions": 4
   },
   "action_horizon": 16,
