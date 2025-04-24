@@ -143,6 +143,15 @@ def main(config: Config):
         embodiment_tag=embodiment_tag,  # This will override the dataset's embodiment tag to "new_embodiment"
         video_backend=config.video_backend,
     )
+    
+    eval_dataset = LeRobotSingleDataset(
+        dataset_path=config.dataset_path,
+        modality_configs=modality_configs,
+        transforms=transforms,
+        embodiment_tag=embodiment_tag,  # This will override the dataset's embodiment tag to "new_embodiment"
+        video_backend=config.video_backend,
+        training=False
+    )
 
     # ------------ step 2: load model ------------
     # Initialize the model with custom config and load matched weight from GR00T pretrained model 
@@ -195,11 +204,13 @@ def main(config: Config):
         max_steps=config.max_steps,
         save_strategy="steps",
         save_steps=config.save_steps,
-        evaluation_strategy="no",
+        evaluation_strategy="steps",
+        eval_steps=config.save_steps,
+        per_device_eval_batch_size=16,
         save_total_limit=8,
         report_to=config.report_to,
         seed=42,
-        do_eval=False,
+        do_eval=True,
         ddp_find_unused_parameters=False,
         ddp_bucket_cap_mb=100,
         torch_compile_mode=None,
@@ -209,6 +220,7 @@ def main(config: Config):
     # 2.2 run experiment
     experiment = TrainRunner(
         train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         model=model,
         training_args=training_args,
         resume_from_checkpoint=config.resume,

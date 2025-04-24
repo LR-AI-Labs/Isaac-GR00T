@@ -14,7 +14,7 @@
       "positional_embeddings": false
     },
     "action_dim": 32,
-    "action_horizon": 8,
+    "action_horizon": 16,
     "add_cross_attention": false,
     "add_pos_embed": true,
     "freeze_decode_layer": false,
@@ -31,7 +31,7 @@
     "use_past_actions": false,
     "num_past_actions": 0
   },
-  "action_horizon": 8,
+  "action_horizon": 16,
   "architectures": [
     "GR00T_N1"
   ],

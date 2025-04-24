@@ -29,7 +29,6 @@ from transformers.trainer import (
     is_sagemaker_mp_enabled,
 )
 
-
 class BaseSampler(Sampler):
     """Sampler for dataset, which enables `set_epoch` for Dataset.
     `set_epoch` will be called by huggingface Trainer at the end of each epoch.
@@ -69,7 +68,7 @@ class DualBrainTrainer(transformers.Trainer):
         return BaseSampler(self.train_dataset, shuffle=True, seed=self.args.seed)
 
     def _get_eval_sampler(self, eval_dataset):
-        return BaseSampler(eval_dataset, shuffle=False)
+        return BaseSampler(eval_dataset, shuffle=True)
 
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         outputs = model(inputs)
@@ -151,3 +150,18 @@ class DualBrainTrainer(transformers.Trainer):
                 os.path.join(resume_from_checkpoint, TRAINER_STATE_NAME)
             )
         return super().train(resume_from_checkpoint, trial, ignore_keys_for_eval, **kwargs)
+    
+    def evaluate(self, ignore_keys=None):
+        if self.eval_dataset is None:
+            raise ValueError("Trainer: evaluation requires an eval_dataset.")
+        eval_dataloader = self.get_eval_dataloader(self.eval_dataset)
+        self.model.eval()
+        
+        loss = 0.0
+        with torch.no_grad():
+            for step, inputs in enumerate(eval_dataloader):
+                loss += self.compute_loss(self.model, inputs).item()
+                # print(f"Eval step: {step}, eval loss: {loss / (step + 1)}")
+                if step >= 400: break
+        print(f"Eval loss: {loss / step}")
+        return {"eval_loss": loss / step}
