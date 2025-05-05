@@ -165,7 +165,7 @@ def main(config: Config):
         bf16=True,
         # tf32=True,
         per_device_train_batch_size=config.batch_size,
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=2,
         dataloader_num_workers=config.dataloader_num_workers,
         dataloader_pin_memory=False,
         dataloader_persistent_workers=True,

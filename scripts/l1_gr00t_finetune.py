@@ -187,7 +187,7 @@ def main(config: Config):
         bf16=True,
         # tf32=True,
         per_device_train_batch_size=config.batch_size,
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=2,
         dataloader_num_workers=config.dataloader_num_workers,
         dataloader_pin_memory=False,
         dataloader_persistent_workers=True,
@@ -214,7 +214,7 @@ def main(config: Config):
         ddp_find_unused_parameters=False,
         ddp_bucket_cap_mb=100,
         torch_compile_mode=None,
-        save_only_model=True
+        save_only_model=False
     )
 
     # 2.2 run experiment
