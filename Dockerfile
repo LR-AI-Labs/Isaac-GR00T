@@ -12,7 +12,7 @@ RUN apt update && \
     zip unzip wget curl git git-lfs build-essential cmake \
     vim less sudo htop ca-certificates man tmux ffmpeg \
     # Add OpenCV system dependencies
-    libglib2.0-0 libsm6 libxext6 libxrender-dev
+    libglib2.0-0 libsm6 libxext6 libxrender-dev python3-mpi4py
 
 RUN pip install --upgrade pip setuptools
 RUN pip install gpustat wandb==0.19.0
@@ -36,3 +36,4 @@ COPY demo_data /workspace/demo_data
 RUN pip install -e . --no-deps
 # need to install accelerate explicitly to avoid version conflicts
 RUN pip install accelerate>=0.26.0
+RUN pip uninstall -y bitsandbytes

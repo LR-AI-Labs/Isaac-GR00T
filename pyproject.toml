@@ -61,7 +61,7 @@ dependencies = [
     "tyro",
     "pytest",
     "peft",
-    "deepspeed",
+    "deepspeed==0.16.5",
 ]
 
 [project.optional-dependencies]
