@@ -125,5 +125,5 @@ output/
 
 # Checkpoints
 checkpoints/
-# demo_data
+demo_data
 **.sqsh
