@@ -13,6 +13,9 @@ from experiments.robot.openvla_utils import (
     get_vla_action,
 )
 
+from gr00t.model.policy import Gr00tPolicy, L1Gr00tPolicy
+from gr00t.experiment.data_config import DATA_CONFIG_MAP
+
 # Initialize important constants
 ACTION_DIM = 7
 DATE = time.strftime("%Y_%m_%d")
@@ -67,11 +70,42 @@ def get_model(cfg: Any, wrap_diffusion_policy_for_droid: bool = False) -> torch.
     """
     if cfg.model_family == "openvla":
         model = get_vla(cfg)
+    elif cfg.model_family == "gr00t":
+        model = get_gr00t_policy(cfg)
     else:
         raise ValueError(f"Unsupported model family: {cfg.model_family}")
 
     print(f"Loaded model: {type(model)}")
     return model
+
+def get_gr00t_policy(cfg: Any) -> torch.nn.Module:
+    embodiment_tag = cfg.embodiment_tag
+    data_config_name = cfg.data_config_name
+    data_config = DATA_CONFIG_MAP[data_config_name]
+    modality_config = data_config.modality_config()
+    modality_transform = data_config.transform()
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    if cfg.use_diffusion:
+        policy = Gr00tPolicy(
+            model_path=cfg.pretrained_checkpoint,
+            embodiment_tag=embodiment_tag,
+            modality_config=modality_config,
+            modality_transform=modality_transform,
+            device=device
+        )
+    elif cfg.use_l1_regression:
+        policy = L1Gr00tPolicy(
+            model_path=cfg.pretrained_checkpoint,
+            l1_model_path=cfg.l1_model_path,
+            embodiment_tag=embodiment_tag,
+            modality_config=modality_config,
+            modality_transform=modality_transform,
+            device=device
+        )
+    else:
+        raise ValueError("Unsupported model type. Please specify either diffusion or L1 regression.")
+    return policy
 
 
 def get_image_resize_size(cfg: Any) -> Union[int, tuple]:

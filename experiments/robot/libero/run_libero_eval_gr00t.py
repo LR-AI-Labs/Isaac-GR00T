@@ -1,7 +1,7 @@
 """
-run_libero_eval.py
+run_libero_eval_gr00t.py
 
-Evaluates a trained policy in a LIBERO simulation benchmark task suite.
+Evaluates a gr00t based policy in a LIBERO simulation benchmark task suite.
 """
 
 import json
@@ -32,13 +32,7 @@ from experiments.robot.libero.libero_utils import (
     quat2axisangle,
     save_rollout_video,
 )
-from experiments.robot.openvla_utils import (
-    get_action_head,
-    get_noisy_action_projector,
-    get_processor,
-    get_proprio_projector,
-    resize_image_for_policy,
-)
+
 from experiments.robot.robot_utils import (
     DATE_TIME,
     get_action,
@@ -48,7 +42,8 @@ from experiments.robot.robot_utils import (
     normalize_gripper_action,
     set_seed_everywhere,
 )
-from prismatic.vla.constants import NUM_ACTIONS_CHUNK
+
+NUM_ACTIONS_CHUNK = 16
 
 
 # Define task suite constants
@@ -127,13 +122,21 @@ class GenerateConfig:
     wandb_project: str = "your-wandb-project"        # Name of WandB project
 
     seed: int = 7                                    # Random Seed (for reproducibility)
-
+    
+    # Gr00t-specific parameters
+    l1_model_path: str = None                         # Path to L1 model checkpoint
+    embodiment_tag: str = "new_embodiment"          # Embodiment tag for the model
+    data_config_name: str = "libero"                           # Data config for robot type
     # fmt: on
 
 
 def validate_config(cfg: GenerateConfig) -> None:
     """Validate configuration parameters."""
     assert cfg.pretrained_checkpoint is not None, "pretrained_checkpoint must not be None!"
+    
+    assert cfg.use_diffusion ^ cfg.use_l1_regression, "`use_diffusion` or `use_l1_regression` must be True"
+    if cfg.use_l1_regression:
+        assert cfg.l1_model_path is not None, "l1_model_path must not be None when using L1 regression!"
 
     if "image_aug" in str(cfg.pretrained_checkpoint):
         assert cfg.center_crop, "Expecting `center_crop==True` because model was trained with image augmentations!"
@@ -148,33 +151,7 @@ def initialize_model(cfg: GenerateConfig):
     """Initialize model and associated components."""
     # Load model
     model = get_model(cfg)
-
-    # Load proprio projector if needed
-    proprio_projector = None
-    if cfg.use_proprio:
-        proprio_projector = get_proprio_projector(
-            cfg,
-            model.llm_dim,
-            proprio_dim=8,  # 8-dimensional proprio for LIBERO
-        )
-
-    # Load action head if needed
-    action_head = None
-    if cfg.use_l1_regression or cfg.use_diffusion:
-        action_head = get_action_head(cfg, model.llm_dim)
-
-    # Load noisy action projector if using diffusion
-    noisy_action_projector = None
-    if cfg.use_diffusion:
-        noisy_action_projector = get_noisy_action_projector(cfg, model.llm_dim)
-
-    # Get OpenVLA processor if needed
-    processor = None
-    if cfg.model_family == "openvla":
-        processor = get_processor(cfg)
-        check_unnorm_key(cfg, model)
-
-    return model, action_head, proprio_projector, noisy_action_projector, processor
+    return model
 
 
 def check_unnorm_key(cfg: GenerateConfig, model) -> None:
@@ -241,23 +218,23 @@ def load_initial_states(cfg: GenerateConfig, task_suite, task_id: int, log_file=
         return initial_states, None
 
 
-def prepare_observation(obs, resize_size):
+def prepare_observation(obs, task_description):
     """Prepare observation for policy input."""
     # Get preprocessed images
-    img = get_libero_image(obs)
-    wrist_img = get_libero_wrist_image(obs)
-
-    # Resize images to size expected by model
-    img_resized = resize_image_for_policy(img, resize_size)
-    wrist_img_resized = resize_image_for_policy(wrist_img, resize_size)
+    img = get_libero_image(obs).astype(np.unit8)
+    wrist_img = get_libero_wrist_image(obs).astype(np.unit8)
+    
+    assert len(img.shape) == 4 and len(wrist_img.shape) == 4, "Image shape must be (T, H, W, C)"
 
     # Prepare observations dict
     observation = {
-        "full_image": img_resized,
-        "wrist_image": wrist_img_resized,
-        "state": np.concatenate(
+        "video.image": img,
+        "video.wrist_image": wrist_img,
+        "state.state": np.concatenate(
             (obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])
         ),
+        "action.action": np.zeros((NUM_ACTIONS_CHUNK, 7)),
+        "annotation.human.task_description": [task_description]
     }
 
     return observation, img  # Return both processed observation and original image for replay
@@ -281,7 +258,6 @@ def run_episode(
     env,
     task_description: str,
     model,
-    resize_size,
     processor=None,
     action_head=None,
     proprio_projector=None,
@@ -322,23 +298,13 @@ def run_episode(
                 continue
 
             # Prepare observation
-            observation, img = prepare_observation(obs, resize_size)
+            observation, img = prepare_observation(obs, task_description)
             replay_images.append(img)
 
             # If action queue is empty, requery model
             if len(action_queue) == 0:
                 # Query model to get action
-                actions = get_action(
-                    cfg,
-                    model,
-                    observation,
-                    task_description,
-                    processor=processor,
-                    action_head=action_head,
-                    proprio_projector=proprio_projector,
-                    noisy_action_projector=noisy_action_projector,
-                    use_film=cfg.use_film,
-                )
+                actions = model.get_action(observation)
                 action_queue.extend(actions)
 
             # Get action from queue
@@ -365,7 +331,6 @@ def run_task(
     task_suite,
     task_id: int,
     model,
-    resize_size,
     processor=None,
     action_head=None,
     proprio_projector=None,
@@ -414,7 +379,6 @@ def run_task(
             env,
             task_description,
             model,
-            resize_size,
             processor,
             action_head,
             proprio_projector,
@@ -469,10 +433,7 @@ def eval_libero(cfg: GenerateConfig) -> float:
     set_seed_everywhere(cfg.seed)
 
     # Initialize model and components
-    model, action_head, proprio_projector, noisy_action_projector, processor = initialize_model(cfg)
-
-    # Get expected image dimensions
-    resize_size = get_image_resize_size(cfg)
+    model = initialize_model(cfg)
 
     # Setup logging
     log_file, local_log_filepath, run_id = setup_logging(cfg)
@@ -492,14 +453,9 @@ def eval_libero(cfg: GenerateConfig) -> float:
             task_suite,
             task_id,
             model,
-            resize_size,
-            processor,
-            action_head,
-            proprio_projector,
-            noisy_action_projector,
-            total_episodes,
-            total_successes,
-            log_file,
+            total_episodes=total_episodes,
+            total_successes=total_successes,
+            log_file=log_file,
         )
 
     # Calculate final success rate

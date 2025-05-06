@@ -1,4 +1,6 @@
 """Utils for evaluating policies in LIBERO simulation environments."""
+import sys
+sys.path.append("~/datpv/LIBERO")
 
 import math
 import os
