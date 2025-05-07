@@ -48,6 +48,9 @@ class Config:
     # Training parameters
     batch_size: int = 1 # 16
     """Batch size per GPU for training."""
+    
+    grad_accum: int = 2
+    """Number of gradient accumulation steps."""
 
     max_steps: int = 10000
     """Maximum number of training steps."""
@@ -187,7 +190,7 @@ def main(config: Config):
         bf16=True,
         # tf32=True,
         per_device_train_batch_size=config.batch_size,
-        gradient_accumulation_steps=2,
+        gradient_accumulation_steps=config.grad_accum,
         dataloader_num_workers=config.dataloader_num_workers,
         dataloader_pin_memory=False,
         dataloader_persistent_workers=True,

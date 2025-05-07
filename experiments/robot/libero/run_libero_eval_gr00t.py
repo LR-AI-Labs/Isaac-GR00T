@@ -126,7 +126,7 @@ class GenerateConfig:
     # Gr00t-specific parameters
     l1_model_path: str = None                         # Path to L1 model checkpoint
     embodiment_tag: str = "new_embodiment"          # Embodiment tag for the model
-    data_config_name: str = "libero"                           # Data config for robot type
+    data_config: str = "libero"                           # Data config for robot type
     # fmt: on
 
 

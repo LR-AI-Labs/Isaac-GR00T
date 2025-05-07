@@ -80,8 +80,7 @@ def get_model(cfg: Any, wrap_diffusion_policy_for_droid: bool = False) -> torch.
 
 def get_gr00t_policy(cfg: Any) -> torch.nn.Module:
     embodiment_tag = cfg.embodiment_tag
-    data_config_name = cfg.data_config_name
-    data_config = DATA_CONFIG_MAP[data_config_name]
+    data_config = DATA_CONFIG_MAP[cfg.data_config]
     modality_config = data_config.modality_config()
     modality_transform = data_config.transform()
     device = "cuda" if torch.cuda.is_available() else "cpu"

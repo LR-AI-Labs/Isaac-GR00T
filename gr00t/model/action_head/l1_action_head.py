@@ -178,8 +178,7 @@ class L1ActionGenerator(nn.Module):
             hidden_dim=self.hidden_size,
             output_dim=self.action_dim,
         )
-        torch.manual_seed(42)
-        nn.init.kaiming_normal_(self.action_embedding.weight, gain=1./np.sqrt(2))
+        self.action_embedding.weight.data.normal_(mean=0.0, std=0.02)
         if config.add_pos_embed:
             self.position_embedding = SinusoidalPositionalEmbedding(self.input_embedding_dim, config.max_seq_len)
             # self.position_embedding = nn.Embedding(

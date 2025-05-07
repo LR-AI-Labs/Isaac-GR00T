@@ -127,3 +127,4 @@ output/
 checkpoints/
 demo_data
 **.sqsh
+test.*

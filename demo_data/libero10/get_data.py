@@ -1,7 +1,7 @@
 import os
 import gr00t
 import json
-from huggingface_hub import hf_hub_download
+from huggingface_hub import snapshot_download
 
 WORKDIR = os.path.dirname(os.path.dirname(gr00t.__file__))
 os.chdir(WORKDIR)
@@ -11,7 +11,7 @@ if __name__ == "__main__":
     local_dir = "demo_data/libero10"
 
     # Download the dataset
-    dataset_path = hf_hub_download(
+    dataset_path = snapshot_download(
         repo_id=dataset_name,
         local_dir=local_dir,
         repo_type="dataset",    
