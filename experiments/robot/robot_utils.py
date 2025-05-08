@@ -8,10 +8,10 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from experiments.robot.openvla_utils import (
-    get_vla,
-    get_vla_action,
-)
+# from experiments.robot.openvla_utils import (
+#     get_vla,
+#     get_vla_action,
+# )
 
 from gr00t.model.policy import Gr00tPolicy, L1Gr00tPolicy
 from gr00t.experiment.data_config import DATA_CONFIG_MAP

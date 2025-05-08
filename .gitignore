@@ -128,3 +128,7 @@ checkpoints/
 demo_data
 **.sqsh
 test.*
+
+experiments/logs
+rollouts
+evaluate

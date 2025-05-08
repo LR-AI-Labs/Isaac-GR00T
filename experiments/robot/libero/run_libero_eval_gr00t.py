@@ -4,6 +4,7 @@ run_libero_eval_gr00t.py
 Evaluates a gr00t based policy in a LIBERO simulation benchmark task suite.
 """
 
+import traceback
 import json
 import logging
 import os
@@ -17,13 +18,13 @@ from typing import Optional, Union
 import draccus
 import numpy as np
 import tqdm
-sys.path.append("~/datpv/LIBERO")
+sys.path.append(os.path.expanduser("~/datpv/LIBERO"))
 from libero.libero import benchmark
 
 import wandb
 
 # Append current directory so that interpreter can find experiments.robot
-sys.path.append("../..")
+sys.path.append(os.path.expanduser("~/datpv/Isaac-GR00T"))
 from experiments.robot.libero.libero_utils import (
     get_libero_dummy_action,
     get_libero_env,
@@ -81,19 +82,19 @@ class GenerateConfig:
     #################################################################################################################
     # Model-specific parameters
     #################################################################################################################
-    model_family: str = "openvla"                    # Model family
+    model_family: str = "gr00t"                    # Model family
     pretrained_checkpoint: Union[str, Path] = ""     # Pretrained checkpoint path
 
-    use_l1_regression: bool = True                   # If True, uses continuous action head with L1 regression objective
-    use_diffusion: bool = False                      # If True, uses continuous action head with diffusion modeling objective (DDIM)
-    num_diffusion_steps_train: int = 50              # (When `diffusion==True`) Number of diffusion steps used for training
-    num_diffusion_steps_inference: int = 50          # (When `diffusion==True`) Number of diffusion steps used for inference
+    use_l1_regression: bool = False                   # If True, uses continuous action head with L1 regression objective
+    use_diffusion: bool = True                      # If True, uses continuous action head with diffusion modeling objective (DDIM)
+    num_diffusion_steps_train: int = 8              # (When `diffusion==True`) Number of diffusion steps used for training
+    num_diffusion_steps_inference: int = 8          # (When `diffusion==True`) Number of diffusion steps used for inference
     use_film: bool = False                           # If True, uses FiLM to infuse language inputs into visual features
     num_images_in_input: int = 2                     # Number of images in the VLA input (default: 1)
     use_proprio: bool = True                         # Whether to include proprio state in input
 
     center_crop: bool = True                         # Center crop? (if trained w/ random crop image aug)
-    num_open_loop_steps: int = 8                     # Number of actions to execute open-loop before requerying policy
+    num_open_loop_steps: int = 16                     # Number of actions to execute open-loop before requerying policy
 
     lora_rank: int = 32                              # Rank of LoRA weight matrix (MAKE SURE THIS MATCHES TRAINING!)
 
@@ -134,7 +135,7 @@ def validate_config(cfg: GenerateConfig) -> None:
     """Validate configuration parameters."""
     assert cfg.pretrained_checkpoint is not None, "pretrained_checkpoint must not be None!"
     
-    assert cfg.use_diffusion ^ cfg.use_l1_regression, "`use_diffusion` or `use_l1_regression` must be True"
+    assert cfg.use_diffusion ^ cfg.use_l1_regression, "only use_diffusion or use_l1_regression is supported to be True"
     if cfg.use_l1_regression:
         assert cfg.l1_model_path is not None, "l1_model_path must not be None when using L1 regression!"
 
@@ -221,18 +222,16 @@ def load_initial_states(cfg: GenerateConfig, task_suite, task_id: int, log_file=
 def prepare_observation(obs, task_description):
     """Prepare observation for policy input."""
     # Get preprocessed images
-    img = get_libero_image(obs).astype(np.unit8)
-    wrist_img = get_libero_wrist_image(obs).astype(np.unit8)
+    img = get_libero_image(obs).astype(np.uint8) # (H, W, C)
+    wrist_img = get_libero_wrist_image(obs).astype(np.uint8) # (H, W, C)
     
-    assert len(img.shape) == 4 and len(wrist_img.shape) == 4, "Image shape must be (T, H, W, C)"
-
     # Prepare observations dict
     observation = {
-        "video.image": img,
-        "video.wrist_image": wrist_img,
+        "video.image": img[np.newaxis, ...], # extend to (1, H, W, C)
+        "video.wrist_image": wrist_img[np.newaxis, ...], # extend to (1, H, W, C)
         "state.state": np.concatenate(
             (obs["robot0_eef_pos"], quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"])
-        ),
+        )[np.newaxis, :],  # extend to (1, 8)
         "action.action": np.zeros((NUM_ACTIONS_CHUNK, 7)),
         "annotation.human.task_description": [task_description]
     }
@@ -247,7 +246,7 @@ def process_action(action, model_family):
 
     # [OpenVLA] The dataloader flips the sign of the gripper action to align with other datasets
     # (0 = close, 1 = open), so flip it back (-1 = open, +1 = close) before executing the action
-    if model_family == "openvla":
+    if model_family in ["openvla", "gr00t"]:
         action = invert_gripper_action(action)
 
     return action
@@ -304,7 +303,7 @@ def run_episode(
             # If action queue is empty, requery model
             if len(action_queue) == 0:
                 # Query model to get action
-                actions = model.get_action(observation)
+                actions = model.get_action(observation)["action.action"]
                 action_queue.extend(actions)
 
             # Get action from queue
