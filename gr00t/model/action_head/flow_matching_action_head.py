@@ -169,6 +169,9 @@ class FlowmatchingActionHeadConfig(PretrainedConfig):
     tune_diffusion_model: bool = field(
         default=True, metadata={"help": "Whether to tune the diffusion model."}
     )
+    num_past_actions: int = field(
+        default=0, metadata={"help": "Number of past actions to consider."}
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -198,6 +201,7 @@ class FlowmatchingActionHead(nn.Module):
             hidden_dim=self.hidden_size,
             output_dim=self.input_embedding_dim,
         )
+        self.num_past_actions = config.num_past_actions
         self.action_encoder = MultiEmbodimentActionEncoder(
             action_dim=config.action_dim,
             hidden_size=self.input_embedding_dim,
@@ -276,6 +280,17 @@ class FlowmatchingActionHead(nn.Module):
 
         # Embed state.
         state_features = self.state_encoder(action_input.state, embodiment_id)
+        
+        # Embed past actions with t = 1
+        if self.num_past_actions > 0:
+            past_actions = action_input.action[:, :self.num_past_actions, :]
+            t = torch.ones(past_actions.shape[0], device=device, dtype=past_actions.dtype)
+            t_discretized = (t * self.num_timestep_buckets).long()
+            past_action_features = self.action_encoder(past_actions, t_discretized, embodiment_id)
+            
+            # Pop out the past actions from the action input.
+            action_input.action = action_input.action[:, self.num_past_actions:, :]
+            action_input.action_mask = action_input.action_mask[:, self.num_past_actions:, :]
 
         # Embed noised action trajectory.
         actions = action_input.action
@@ -289,7 +304,11 @@ class FlowmatchingActionHead(nn.Module):
         # Convert (continuous) t -> discrete if needed
         t_discretized = (t[:, 0, 0] * self.num_timestep_buckets).long()
         action_features = self.action_encoder(noisy_trajectory, t_discretized, embodiment_id)
-
+        
+        # If we have past actions, concatenate them to the action features.
+        if self.num_past_actions > 0:
+            action_features = torch.cat((past_action_features, action_features), dim=1)
+            
         # Maybe add position embedding.
         if self.config.add_pos_embed:
             pos_ids = torch.arange(action_features.shape[1], dtype=torch.long, device=device)
@@ -327,10 +346,21 @@ class FlowmatchingActionHead(nn.Module):
 
         # Embed state.
         state_features = self.state_encoder(action_input.state, embodiment_id)
-
+        
+        device = vl_embeds.device
+        # Embed past actions with t = 1
+        if self.num_past_actions > 0:
+            past_actions = action_input.action[:, :self.num_past_actions, :]
+            t = torch.ones(past_actions.shape[0], device=device, dtype=past_actions.dtype)
+            t_discretized = (t * self.num_timestep_buckets).long()
+            past_action_features = self.action_encoder(past_actions, t_discretized, embodiment_id)
+            
+            # Pop out the past actions from the action input.
+            action_input.action = action_input.action[:, self.num_past_actions:, :]
+            action_input.action_mask = action_input.action_mask[:, self.num_past_actions:, :]
+            
         # Set initial actions as the sampled noise.
         batch_size = vl_embeds.shape[0]
-        device = vl_embeds.device
         actions = torch.randn(
             size=(batch_size, self.config.action_horizon, self.config.action_dim),
             dtype=vl_embeds.dtype,
@@ -350,6 +380,11 @@ class FlowmatchingActionHead(nn.Module):
                 size=(batch_size,), fill_value=t_discretized, device=device
             )
             action_features = self.action_encoder(actions, timesteps_tensor, embodiment_id)
+                    
+            # If we have past actions, concatenate them to the action features.
+            if self.num_past_actions > 0:
+                action_features = torch.cat((past_action_features, action_features), dim=1)
+                
             # Maybe add position embedding.
             if self.config.add_pos_embed:
                 pos_ids = torch.arange(action_features.shape[1], dtype=torch.long, device=device)

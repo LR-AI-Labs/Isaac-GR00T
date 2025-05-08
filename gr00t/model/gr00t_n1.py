@@ -99,7 +99,7 @@ class GR00T_N1(PreTrainedModel):
             type_ok = isinstance(action, torch.Tensor)
             shape_ok = (
                 len(action.shape) == 3
-                and action.shape[1] == self.action_horizon
+                # and action.shape[1] == self.action_horizon
                 and action.shape[2] == self.action_dim
             )
             if not type_ok:
