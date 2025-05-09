@@ -395,7 +395,7 @@ def run_task(
 
         # Save replay video
         save_rollout_video(
-            replay_images, total_episodes, success=success, task_description=task_description, log_file=log_file
+            replay_images, total_episodes, success=success, task_description=task_description, model_class=type(model).__name__, log_file=log_file
         )
 
         # Log results
