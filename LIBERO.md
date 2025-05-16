@@ -17,7 +17,7 @@ Extra dependencies:
 sudo apt-get install libosmesa6-dev freeglut3-dev libglfw3-dev libgles2-mesa-dev 
 sudo apt-get install python3-opengl
 ```
-Some changes: refer to https://github.com/ARISE-Initiative/robosuite/issues/490
+Some changes if error occurs: refer to https://github.com/ARISE-Initiative/robosuite/issues/490
 ```bash
 sudo mkdir /usr/lib/dri
 cd /usr/lib/dri
@@ -32,4 +32,21 @@ export MJLIB_PATH=$HOME/.mujoco/mujoco200/bin/libmujoco200.so
 export MJKEY_PATH=$HOME/.mujoco/mujoco200/mjkey.txt
 export LD_LIBRARY_PATH=$HOME/.mujoco/mujoco200/bin:$LD_LIBRARY_PATH
 export MUJOCO_PY_MJKEY_PATH=$HOME/.mujoco/mujoco200/mjkey.txt
+```
+
+## Evaluate prompt examples
+- GR00T: 
+```bash
+python experiments/robot/libero/run_libero_eval_gr00t.py \
+--pretrained_checkpoint checkpoints/gr00t-libero_object-b32/checkpoint-5000 \
+--task_suite_name libero_object
+```
+- L2 GR00T:
+```bash
+python experiments/robot/libero/run_libero_eval_gr00t.py \
+--pretrained_checkpoint checkpoints/l2_gr00t-libero_object-b32/checkpoint-5000 \
+--l1_model_path checkpoints/l2_gr00t-libero_object-b32/checkpoint-5000
+--task_suite_name libero_object \
+--use_l1_regression True \
+--use_diffusion False \
 ```

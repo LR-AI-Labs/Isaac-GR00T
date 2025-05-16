@@ -13,6 +13,7 @@
       "output_dim": 1024,
       "positional_embeddings": false
     },
+    "regression_loss": "l2",
     "action_dim": 32,
     "action_horizon": 16,
     "add_cross_attention": false,

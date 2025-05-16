@@ -37,6 +37,9 @@ class L1ActionGeneratorConfig(PretrainedConfig):
     num_past_actions: int = field(
         default=0, metadata={"help": "Number of past actions used."}
     )
+    regression_loss: str = field(
+        default="l2", metadata={"help": "Loss function for action prediction."}
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -187,6 +190,7 @@ class L1ActionGenerator(nn.Module):
             #     _freeze=True
             # )
             # create_sinusoidal_embeddings(config.max_seq_len, self.input_embedding_dim, self.position_embedding.weight)
+        self.regression_loss = config.regression_loss
         self.config = config
         self.set_trainable_parameters(config.tune_projector, config.tune_action_backbone)
 
@@ -281,10 +285,15 @@ class L1ActionGenerator(nn.Module):
         pred = self.action_decoder(model_output, embodiment_id) # B x (1+action_horizon) x action_dim
         pred_actions = pred[:, -self.action_horizon:, :] # B x action_horizon x action_dim
         
-        # compute L1 loss
+        # compute regression loss
         action_mask = action_input.action_mask[:, -self.action_horizon:, :]
         ground_truth_actions = action_input.action[:, -self.action_horizon:, :]
-        loss = F.mse_loss(pred_actions, ground_truth_actions, reduction="none") * action_mask
+        if self.regression_loss == "l2":
+            loss = F.mse_loss(pred_actions, ground_truth_actions, reduction="none") * action_mask
+        elif self.regression_loss == "l1":
+            loss = F.l1_loss(pred_actions, ground_truth_actions, reduction="none") * action_mask
+        else:
+            raise ValueError(f"Unsupported regression loss: {self.config.regression_loss}")
         loss = loss.sum() / action_mask.sum()
         output_dict = {
             "loss": loss,
